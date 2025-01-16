@@ -60,7 +60,7 @@ def get_commonality_score(word : str) -> float :
     
     return commonality_score
 
-# Function that generates a list of N english words (nouns, adjectives, verbs)
+# Function that generates a random english word for a list of nouns, adjectives, or verbs
 def get_random_word(list : list) :
     return "".join(random.sample(list, 1))
 
@@ -87,13 +87,28 @@ def get_vocab_bank(count : int, target : str, level : float) -> list[str] :
     
     return vocab_bank
 
+def build_vocab(vocab_bank : dict) -> str:
+    output = """
+\\begin{tabular}{>{\\raggedright\\arraybackslash}p{4cm} c c}
+    Word & Translation & Definition \\\\[0.2cm]
+    \\hline
+    """
+
+    for word in vocab_bank :
+        row = f'{word['word']} & {word['translation']} & {word['definition']} \\\\[0.2cm]\n'
+        output += row
+
+    output += "\\end{tabular}"
+
+    return output
+
 # TODO : create a function that will generate a fill in the blank exercice based on a fixed set
 # of vocabulary words
-def fillin_ex(lang : str, level : float, len : int, vocabulary : list[str]) -> str :
+def build_fill_in_the_blank(lang : str, level : float, len : int, vocabulary : list[str]) -> str :
     pass
 
 # TODO : create a function that will generate a translation exercice
-def translation_ex(lang : str, level : float, len : int, vocabulary : list[str]) -> str :
+def build_translation(lang : str, level : float, len : int, vocabulary : list[str]) -> str :
     pass
 
 # TODO : create a function which will generate a PDF file worksheet.
