@@ -1,2 +1,6 @@
 # Ignoring virtual environment
 env/
+
+# Ignoring test file
+/test.py
+
