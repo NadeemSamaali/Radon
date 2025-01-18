@@ -1,64 +1,93 @@
 import nltk
 import random
 import pickle
+import math
 
 from deep_translator import GoogleTranslator
-from nltk.corpus import brown
-from nltk.corpus import wordnet as wn
+from nltk.corpus import words
 from nltk.probability import FreqDist
 
-# Loading brown corpus data . If files doesn't exit, download it and pickle it in assets
+from nltk.corpus import wordnet as wn
+
+# Loading wordnet from assets
 try :
-    with open("assets/brown_corpus_data.pkl", "rb") as f:
-        freq_dist, total_words = pickle.load(f)
+    with open('assets/wordnet.pkl', 'rb') as file:
+        wn = pickle.load(file)
+except :
+    # Download WordNet (if you haven't already)
+    nltk.download('wordnet', quiet=True)
+
+    # Serialize the WordNet object
+    with open('assets/wordnet.pkl', 'wb') as file:
+        pickle.dump(wn, file)
+
+# Loading words_data from assets
+try :
+    with open('assets/words_data.pkl', 'rb') as file :
+        common_words = pickle.load(file)
 
 except :
-    # Download the Brown corpus if not already available
-    nltk.download('brown')
+    nltk.download('words', quiet=True)
 
-    # Precompute the data
-    brown_words = brown.words()
-    freq_dist = FreqDist(brown_words)
-    total_words = len(brown_words)
+    word_list = words.words()
 
-    # Save precomputed data to a pickle file
-    with open("assets/brown_corpus_data.pkl", "wb") as f:
-        pickle.dump((freq_dist, total_words), f)
+    common_words = [ # Filtering out proper nounds and numbers from data set
+        word for word in word_list
+        if word.islower() and word.isalpha() 
+    ]
 
-# Loading words list from assets - If file doesn't exist, download it and pickle it in assets
-try : 
-    with open("assets/words_list", "rb") as f :
-        n_list, v_list, a_list = pickle.load(f)
+    with open('assets/words_data.pkl', 'wb') as file :
+        pickle.dump(common_words, file)
+
+# Loading frequency_data from assets
+try :
+    with open('assets/frequency_data.pkl', 'rb') as file :
+        fdist = pickle.load(file)
+
 except :
-    nltk.download("wordnet")
-    nltk.download("omw-1.4")
+    fdist = FreqDist(common_words)
+    with open('assets/frequency_data.pkl', 'wb') as file :
+        pickle.dump(fdist, file)
 
-    synsets_n = list(wn.all_synsets('n'))
-    synsets_v = list(wn.all_synsets('v'))
-    synsets_a = list(wn.all_synsets('a'))
+# Creating and configuring the Gemini 1.5-Falsh-8B Model
+import google.generativeai as genai
 
-    nouns = set(lemma.name() for syn in synsets_n for lemma in syn.lemmas())
-    verbs = set(lemma.name() for syn in synsets_v for lemma in syn.lemmas())
-    adjectives = set(lemma.name() for syn in synsets_a for lemma in syn.lemmas())
+genai.configure(api_key="AIzaSyBQqnpIRFvNbjrZBDp1Fjgi_IsQmPpgcHU")
 
-    n_list, v_list, a_list = list(nouns), list(verbs), list(adjectives)
+# Create the model
+generation_config = {
+  "temperature": 1,
+  "top_p": 0.95,
+  "top_k": 40,
+  "max_output_tokens": 8192,
+  "response_mime_type": "text/plain",
+}
 
-    # Save precomputed data to a pickle file
-    with open("assets/words_list", "wb") as f:
-        pickle.dump((n_list, v_list, a_list), f)
+model = genai.GenerativeModel(
+  model_name="gemini-1.5-flash",
+  generation_config=generation_config,
+)
+
+chat_session = model.start_chat(
+  history=[
+  ]
+)
 
 # Function that translates input string into target language. Returns translated text
-def translate(input : str, target_lang : str) -> str :
+def get_translation(input : str, target_lang : str) -> str :
     return GoogleTranslator(source = "auto", target = target_lang).translate(input)
 
 # Function that assigns a score to a word based on its commonality / difficulty
-def get_commonality_score(word : str) -> float :
+def get_word_score(word : str) -> float :
+
     word = word.lower()
-    # Generate the frequency distribution of words in the chosen corpus
-    word_frequency = freq_dist[word]
-    commonality_score = word_frequency / total_words if word_frequency > 0 else 0
-    
-    return commonality_score
+    frequency = fdist[word]
+    total_words = len(common_words)
+
+    raw_commonality = frequency / total_words
+    commonality_score = raw_commonality #* length_factor
+
+    return -math.log10(commonality_score)
 
 # Function that generates a random english word for a list of nouns, adjectives, or verbs
 def get_random_word(list : list) :
@@ -66,46 +95,63 @@ def get_random_word(list : list) :
 
 # Function retrieving the definition of an English word
 def get_definiton(word : str) -> str :
-    synonyms = wn.synsets(word)
-    return synonyms[0].definition()
+    synsets = wn.synsets(word)
+    return synsets[0].definition()
 
-# Function that generates a vocabulary bank based on desired level of difficulty 
-def get_vocab_bank(count : int, target : str, level : float) -> list[str] : 
+# Function that generates a vocabulary bank of commonly used words
+def get_vocabulary(count : int) -> list[str] : 
+    output = []
+    i = 0
+    while i < count :
+        word = random.sample(common_words, 1)[0]
+        # Filtering out words with a word score above 5.3 -- words above that threshhold are of uncommon usage
+        if get_word_score(word) < 5.3 and len(word) > 3 and word not in output :
+            output.append(word)
+            i += 1
+    return output
 
-    vocab_bank = []
-    word_types = [n_list, v_list, a_list]
-    word = ""
+# Writes vocabulary bank in markdown
+def build_vocab(vocab : list[str], target : str) -> str:
+    output = "## Vocabulary \nHere are the words that will be covered in this worksheet. \n|Word|Translation|Definition|\n|:----|:----|:----|\n"
 
-    for word_type in word_types :
-        for i in range(count) :
-            commonality_score, word = 0, ""
-            while commonality_score < 5e-6 - level*2e-6 :
-                word = get_random_word(word_type)
-                commonality_score = get_commonality_score(word)
-                print(word, commonality_score)
-            vocab_bank.append({"word" : translate(word, target), "translation" : word, "definition" : get_definiton(word)})
-    
-    return vocab_bank
-
-def build_vocab(vocab_bank : dict) -> str:
-    output = """
-\\begin{tabular}{>{\\raggedright\\arraybackslash}p{4cm} c c}
-    Word & Translation & Definition \\\\[0.2cm]
-    \\hline
-    """
-
-    for word in vocab_bank :
-        row = f'{word['word']} & {word['translation']} & {word['definition']} \\\\[0.2cm]\n'
+    for word in vocab :
+        row = f'|{get_translation(word,target)}|{word}|{get_definiton(word)}|\n'
         output += row
-
-    output += "\\end{tabular}"
 
     return output
 
-# TODO : create a function that will generate a fill in the blank exercice based on a fixed set
-# of vocabulary words
-def build_fill_in_the_blank(lang : str, level : float, len : int, vocabulary : list[str]) -> str :
-    pass
+
+# Writes a sentence containing a specific word
+def write_paragraph(word : list[str], lang : str) -> str :
+        prompt = f'Write a sentence in {lang}, for each of the following words {word}'
+        response = (chat_session.send_message(prompt)).text
+        return response
+
+"""
+# Writes a fill in the blank exercice in language of choice
+def build_fill_in_the_blank(lang : str, length : float, vocabulary : list[str]) -> str :
+    output = "\n# Fill in the blank \n Fill the blank spaces with the appropriate word from the vocabulary bank. \n\n"
+    sentences = []
+    blank_sentences = []
+
+    for word in vocabulary :
+        for i in range(length) :
+            response = write_sentence(word["word"], lang)
+            sentences.append(response)
+
+    temp_str = []
+    for i in range(len(sentences)) :
+        temp_str.extend(sentences[i].split(f'{vocabulary[i]["word"]}'))
+        blank_sentences.append(f'{" ____________ ".join(temp_str)}')
+        temp_str = []
+
+    random.shuffle(blank_sentences)
+
+    for i in range(len(blank_sentences)) :
+        output += f'{i+1}. {blank_sentences[i]}'
+    
+    return output
+"""
 
 # TODO : create a function that will generate a translation exercice
 def build_translation(lang : str, level : float, len : int, vocabulary : list[str]) -> str :
