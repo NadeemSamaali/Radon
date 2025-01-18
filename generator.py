@@ -2,8 +2,11 @@ import nltk
 import random
 import pickle
 import math
+import os
+import asyncio
 
-from deep_translator import GoogleTranslator
+from googletrans import Translator
+
 from nltk.corpus import words
 from nltk.probability import FreqDist
 
@@ -74,8 +77,28 @@ chat_session = model.start_chat(
 )
 
 # Function that translates input string into target language. Returns translated text
-def get_translation(input : str, target_lang : str) -> str :
-    return GoogleTranslator(source = "auto", target = target_lang).translate(input)
+async def get_translation(input : str, target : str) -> str :
+    # Initialize the Translator
+    translator = Translator()
+
+    # Translate the word asynchronously
+    translation = await translator.translate(input, dest=target)
+
+    return translation.text
+
+# Function that fetches the romanization of a word / phonetic pronounciation
+async def get_pronunciation(input, target='en'):
+    # Initialize the Translator
+    translator = Translator()
+
+    # Translate the word asynchronously
+    translation = await translator.translate(input, dest=target)
+    
+    # Check if pronunciation is available and print it
+    if translation.pronunciation:
+        return translation.pronunciation
+    else:
+        pass
 
 # Function that assigns a score to a word based on its commonality / difficulty
 def get_word_score(word : str) -> float :
@@ -105,21 +128,34 @@ def get_vocabulary(count : int) -> list[str] :
     while i < count :
         word = random.sample(common_words, 1)[0]
         # Filtering out words with a word score above 5.3 -- words above that threshhold are of uncommon usage
-        if get_word_score(word) < 5.3 and len(word) > 3 and word not in output :
+        # print(word, get_word_score(word))
+        if get_word_score(word) < 5.1 and len(word) > 3 and word not in output :
             output.append(word)
             i += 1
     return output
 
 # Writes vocabulary bank in markdown
 def build_vocab(vocab : list[str], target : str) -> str:
-    output = "## Vocabulary \nHere are the words that will be covered in this worksheet. \n|Word|Translation|Definition|\n|:----|:----|:----|\n"
 
-    for word in vocab :
-        row = f'|{get_translation(word,target)}|{word}|{get_definiton(word)}|\n'
-        output += row
+    output = ""
+    test_prn = asyncio.run(get_pronunciation(vocab[0], target=target))
+
+    if test_prn == None :
+
+        output = "\n### Vocabulary \nHere are the words that will be covered in this worksheet. \n|Word|Translation|Definition|\n|:----|:----|:----|\n"
+
+        for word in vocab :
+            row = f'|{asyncio.run(get_translation(word,target))}|{word}|{get_definiton(word)}|\n'
+            output += row
+    else :
+
+        output = "\n### Vocabulary \nHere are the words that will be covered in this worksheet. \n|Word|Pronounciation|Translation|Definition|\n|:----|:----|:----|:----|\n"
+
+        for word in vocab :
+            row = f'|{asyncio.run(get_translation(word,target))}|{asyncio.run(get_pronunciation(word, target=target))}|{word}|{get_definiton(word)}|\n'
+            output += row
 
     return output
-
 
 # Writes a sentence containing a specific word
 def write_paragraph(word : list[str], lang : str) -> str :
@@ -127,36 +163,55 @@ def write_paragraph(word : list[str], lang : str) -> str :
         response = (chat_session.send_message(prompt)).text
         return response
 
-"""
-# Writes a fill in the blank exercice in language of choice
-def build_fill_in_the_blank(lang : str, length : float, vocabulary : list[str]) -> str :
-    output = "\n# Fill in the blank \n Fill the blank spaces with the appropriate word from the vocabulary bank. \n\n"
-    sentences = []
-    blank_sentences = []
+def build_fill_in_the_blank(vocab : list[str], paragraph : list[str]) -> str :
 
-    for word in vocabulary :
-        for i in range(length) :
-            response = write_sentence(word["word"], lang)
-            sentences.append(response)
+    sentences = paragraph
+    filtered = []
+    parsed = []    
+    for sentence in sentences :
+        if sentence != '' :
+            filtered.append(sentence)
 
-    temp_str = []
-    for i in range(len(sentences)) :
-        temp_str.extend(sentences[i].split(f'{vocabulary[i]["word"]}'))
-        blank_sentences.append(f'{" ____________ ".join(temp_str)}')
-        temp_str = []
+    for word in filtered :
+        parsed.append(word.split('*'))
 
-    random.shuffle(blank_sentences)
-
-    for i in range(len(blank_sentences)) :
-        output += f'{i+1}. {blank_sentences[i]}'
+    parsed = [[word for word in element if word != '' and word != ' '] for element in parsed]
+    print(parsed)
+    parsed = [element[-1] for element in parsed if len(element) > 1 ]
+    print(parsed)
     
+    blanks = []
+    for i in range(len(parsed)) :
+        blanks.append(parsed[i].split(vocab[i]))
+    
+    parsed = [" ________________ ".join(element) for element in blanks]
+    random.shuffle(parsed)
+
+    output = "\n### Fill in the blank \nIn this exercice, fill in the blanks in each sentence with the appropriate vocabulary word from the word bank\n\n"
+    for i in range(len(parsed)) :
+        output += f'{i+1}. {parsed[i]}\n \n \n' 
+
     return output
-"""
 
 # TODO : create a function that will generate a translation exercice
 def build_translation(lang : str, level : float, len : int, vocabulary : list[str]) -> str :
     pass
 
-# TODO : create a function which will generate a PDF file worksheet.
-def generate_doc(lang : str, level : float, len : int, vocabulary : list[str]) :
-    pass
+def generate_doc(lang : str, len : int) :
+    directory = "worksheets"
+    all_items = os.listdir(directory)
+    file_count = sum(1 for item in all_items if os.path.isfile(os.path.join(directory, item)))
+    
+    output = "# Worksheet"
+    vocabulary = get_vocabulary(len)
+
+    output += build_vocab(vocabulary, lang)
+    translated_words = [asyncio.run(get_translation(word, lang)) for word in vocabulary]
+    paragraph = write_paragraph(translated_words, lang)
+    sentences = paragraph.split("\n")
+
+    output += build_fill_in_the_blank(translated_words, sentences)
+    print(output)
+    
+    with open(f'worksheets/sheet_{file_count+1}.md', 'w', encoding='utf-8') as file :
+        file.write(output)
