@@ -12,6 +12,10 @@ from nltk.probability import FreqDist
 
 from nltk.corpus import wordnet as wn
 
+# Create worksheets directory if it doesnt exist
+directory = "worksheets"
+os.makedirs(directory, exist_ok=True)
+
 # Loading wordnet from assets
 try :
     with open('assets/wordnet.pkl', 'rb') as file:
