@@ -12,23 +12,9 @@ from googletrans import Translator
 from nltk.corpus import words
 from nltk.probability import FreqDist
 
-from nltk.corpus import wordnet as wn
-
 # Create worksheets directory if it doesnt exist
 directory = "worksheets"
 os.makedirs(directory, exist_ok=True)
-
-# Loading wordnet from assets
-try :
-    with open('assets/wordnet.pkl', 'rb') as file:
-        wn = pickle.load(file)
-except :
-    # Download WordNet (if you haven't already)
-    nltk.download('wordnet', quiet=True)
-
-    # Serialize the WordNet object
-    with open('assets/wordnet.pkl', 'wb') as file:
-        pickle.dump(wn, file)
 
 # Loading words_data from assets
 try :
@@ -206,12 +192,12 @@ def build_fill_in_the_blank(vocab : list[str], target : str) -> str :
 
     output = "\n### Fill in the blank \nIn this exercice, fill in the blanks in each sentence with the appropriate vocabulary word from the word bank.\n\n"
     for i in range(len(parsed)) :
-        output += f'{i+1}. {parsed[i]}\n \n \n' 
+        output += f'{i+1}. {parsed[i]}\n\n' 
 
     return output
 
 # Function building translation matching exercice
-def build_translation(vocab : list, target : str) -> str :
+def build_translation(vocab : list[str], target : str) -> str :
     output = "\n### Translation matching \nIn this exercice, match the expression to its appropriate translation.\n\n"
 
     paragraph = write_paragraph(vocab, target)
@@ -241,6 +227,38 @@ def build_translation(vocab : list, target : str) -> str :
 
     return output
 
+# Function building sentence scramble exercice
+def build_scramble(vocab : list[str], target : str) -> str :
+
+    output = ""
+    prn_test = asyncio.run(get_pronunciation(vocab[0], target=target))
+    
+    if prn_test != None and target != 'ko' :
+        return ""
+
+    else : 
+        output += "\n### Unscramble the sentences\nIn this exercice, put the scrambled words back together to form a grammatically correct sentence.\n\n"
+
+        paragraph = write_paragraph(vocab, target)
+        parsed = parse_gemini_output(paragraph)
+        parsed = [ element.split("(")[0] for element in parsed ]
+
+        parsed = [ element.split(" ") for element in parsed ]
+        parsed = [ [sub_element for sub_element in element if sub_element not in ['', '.', ',', '!', '?']] for element in parsed ]
+        
+        translated = [asyncio.run(get_translation(" ".join(element), 'en')) for element in parsed]
+
+        for element in parsed : 
+            random.shuffle(element)
+
+        parsed = ["/".join(element) for element in parsed]
+
+        for i in range(len(translated)) :
+            output += f'{i+1}. {parsed[i]}  ~  ({translated[i]})\n\n _______________________________________________________________________________________________ \n\n'
+
+        return output
+
+
 # Function building the mardown file (worksheet) containing the exercices
 def generate_doc(target : str, len : int) :
     directory = "worksheets"
@@ -255,8 +273,11 @@ def generate_doc(target : str, len : int) :
     output += build_vocab(vocabulary, target)
     output += build_fill_in_the_blank(vocabulary, target)
     output += build_translation(vocabulary, target)
+    output += build_scramble(vocabulary, target)
 
-    with open(f'worksheets/sheet_{file_count+1}.md', 'w', encoding='utf-8') as file :
-        file.write(output)
+    #with open(f'worksheets/sheet_{file_count+1}.md', 'w', encoding='utf-8') as file :
+        #file.write(output)
 
     print("Worksheet generated !")
+
+    return output
