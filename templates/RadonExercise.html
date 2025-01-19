@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Radon Exercise</title>
+<link rel="stylesheet" href="index.css">
+<style>
+
+    body {
+        background-color: rgba(13, 19, 33, 1); /* Set your desired background color here */
+    }
+
+    .box {
+        background-color: rgba(13, 19, 33, 1);
+        width: 1200px;
+        height: 800px;
+        padding: 40px;
+        border-radius: 45px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        box-sizing: border-box;
+        margin: auto;
+        color:#B8B08D;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: large;
+    }
+
+    h1 {
+        color: #B8B08D;
+        font-size: 24px;
+        font-family: 'JetBrains Mono', monospace;
+        margin: auto;
+        text-align: left;
+        margin-left: 10px ;
+        margin-top: 10px;
+    }
+
+    /* Scroll styles */
+    body {
+        overflow-y: scroll;
+    }
+
+    body::-webkit-scrollbar {
+        width: 10px;
+        background-color: #222536;
+    }
+
+    body::-webkit-scrollbar-thumb {
+        border-radius: 45px;
+        background-color: #B8B08D;
+        border: 1px solid #3a3f52;
+    }
+</style>
+</head>
+<body>
+
+<h1>Radon</h1>
+<div class="box" id="preview"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script>
+    // Pass the worksheet data directly from Flask (Jinja2 rendering)
+    const worksheet = {{ worksheet | tojson | safe }};
+
+    // Convert the markdown content to HTML
+    const md_content = worksheet;
+
+    // Convert to HTML
+    const html_content = marked.parse(md_content);
+
+    // Display in the preview div
+    document.getElementById("preview").innerHTML = html_content;
+</script>
+
+</body>
+</html>

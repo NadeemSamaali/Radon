@@ -13,8 +13,8 @@ from nltk.corpus import words
 from nltk.probability import FreqDist
 
 # Create worksheets directory if it doesnt exist
-directory = "worksheets"
-os.makedirs(directory, exist_ok=True)
+#directory = "worksheets"
+#os.makedirs(directory, exist_ok=True)
 
 # Loading words_data from assets
 try :
@@ -258,16 +258,15 @@ def build_scramble(vocab : list[str], target : str) -> str :
 
         return output
 
-
 # Function building the mardown file (worksheet) containing the exercices
 def generate_doc(target : str, len : int) :
-    directory = "worksheets"
-    all_items = os.listdir(directory)
-    file_count = sum(1 for item in all_items if os.path.isfile(os.path.join(directory, item)))
+    #directory = "worksheets"
+    #all_items = os.listdir(directory)
+    #file_count = sum(1 for item in all_items if os.path.isfile(os.path.join(directory, item)))
     
     print("Generating Worksheet ...")
 
-    output = "# Worksheet"
+    output = ""
     vocabulary = get_vocabulary(len)
 
     output += build_vocab(vocabulary, target)
