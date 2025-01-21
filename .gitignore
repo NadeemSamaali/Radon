@@ -4,3 +4,5 @@ env/
 # Ignoring test file
 /test.py
 
+# Ignoring pychace
+__pycache__/
