@@ -32,7 +32,7 @@ Radon is a Flask-based web application designed to create customized language le
     pip install -r requirements.txt
     ```
 3. **Setup API key** :
-    Replace the placeholder API key in generator.py with your Google Generative AI key:
+    Replace the placeholder API key in `generator.py` with your Google Generative AI key:
     ```python
     genai.configure(api_key="YOUR_GOOGLE_GENERATIVE_AI_KEY")
     ```
