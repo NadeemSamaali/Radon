@@ -47,7 +47,7 @@ except :
 # Creating and configuring the Gemini 1.5-Falsh-8B Model
 import google.generativeai as genai
 
-genai.configure(api_key="AIzaSyBQqnpIRFvNbjrZBDp1Fjgi_IsQmPpgcHU")
+genai.configure(api_key="YOUR_API_KEY")
 
 # Create the model
 generation_config = {
@@ -108,14 +108,6 @@ def get_word_score(word : str) -> float :
 def get_random_word(list : list) :
     return "".join(random.sample(list, 1))
 
-# Function fetching the definition of a word the free dictionary api
-def get_definition(word : str) -> str:
-    response = requests.get(f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}")
-    if response.status_code == 200:
-        data = response.json()
-        return data[0]['meanings'][0]['definitions'][0]['definition']
-    return "Definition not found."
-
 # Function that generates a vocabulary bank of commonly used words
 def get_vocabulary(count : int) -> list[str] : 
     output = []
@@ -137,17 +129,17 @@ def build_vocab(vocab : list[str], target : str) -> str:
 
     if test_prn == None :
 
-        output = "\n### Vocabulary \nHere are the words that will be covered in this worksheet. \n|Word|Translation|Definition|\n|:----|:----|:----|\n"
+        output = "\n### Vocabulary \nHere are the words that will be covered in this worksheet. \n|Word|Translation\n|:----|:----|\n"
 
         for word in vocab :
-            row = f'|{asyncio.run(get_translation(word,target))}|{word}|{get_definition(word)}|\n'
+            row = f'|{asyncio.run(get_translation(word,target))}|{word}|\n'
             output += row
     else :
 
-        output = "\n### Vocabulary \nHere are the words that will be covered in this worksheet. \n|Word|Pronounciation|Translation|Definition|\n|:----|:----|:----|:----|\n"
+        output = "\n### Vocabulary \nHere are the words that will be covered in this worksheet. \n|Word|Pronounciation|Translation\n|:----|:----|:----|\n"
 
         for word in vocab :
-            row = f'|{asyncio.run(get_translation(word,target))}|{asyncio.run(get_pronunciation(word, target=target))}|{word}|{get_definition(word)}|\n'
+            row = f'|{asyncio.run(get_translation(word,target))}|{asyncio.run(get_pronunciation(word, target=target))}|{word}|\n'
             output += row
 
     return output
